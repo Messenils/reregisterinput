@@ -7,76 +7,6 @@ bool init = false;
 bool hooked = false;
 HMODULE protohModule;
 
-HWND hwnd = nullptr;
-
-struct HandleData
-{
-    unsigned long pid;
-    HWND hwnd;
-};
-BOOL IsMainWindow(HWND handle)
-{
-    // Is top level & visible & not one of ours
-    if (GetWindow(handle, GW_OWNER) == nullptr && IsWindowVisible(handle))
-    {
-        return TRUE;
-    }
-    else return FALSE;
-}
-BOOL CALLBACK EnumWindowsCallback(HWND handle, LPARAM lParam)
-{
-    HandleData& data = *(HandleData*)lParam;
-
-    DWORD pid = 0;
-    GetWindowThreadProcessId(handle, &pid);
-
-    if (data.pid != pid || !IsMainWindow(handle))
-        return TRUE; // Keep searching
-
-    data.hwnd = handle;
-
-    return FALSE;
-}
-
-void UpdateMainHwnd(bool logOutput)
-{
-    // Go through all the top level windows, select the first that's visible & belongs to the process
-    HandleData data{ GetCurrentProcessId(), nullptr };
-
-    EnumWindows(EnumWindowsCallback, (LPARAM)&data);
-
-    const auto hwndd = (intptr_t)data.hwnd;
-
-    if (logOutput)
-    {
-        if (hwndd == 0)
-            MessageBoxA(NULL, "UpdateMainHwnd did not find a valid hwnd!", "Error", MB_OK | MB_ICONERROR);
-    }
-    if (data.hwnd != nullptr)
-        hwnd = data.hwnd;
-}
-
-bool AnyRawInputForHwnd(HWND hwnd)
-{
-    UINT num = 0;
-    GetRegisteredRawInputDevices(nullptr, &num, sizeof(RAWINPUTDEVICE));
-
-    if (num == 0)
-        return false;
-
-    std::vector<RAWINPUTDEVICE> devs(num);
-    if (GetRegisteredRawInputDevices(devs.data(), &num, sizeof(RAWINPUTDEVICE)) == (UINT)-1)
-        return false;
-
-    for (auto& d : devs)
-    {
-        if (d.hwndTarget == hwnd)
-            return true;
-    }
-
-    return false;
-}
-
 void UnregisterMouseAndKeyboard()
 {
     RAWINPUTDEVICE devs[2];
@@ -99,7 +29,7 @@ void UnregisterMouseAndKeyboard()
     }
 }
 
-void Registergameinput(HWND hwnd)
+void Registergameinput()
 {
     RAWINPUTDEVICE devs[2];
 
@@ -107,13 +37,13 @@ void Registergameinput(HWND hwnd)
     devs[0].usUsagePage = 0x01;   // HID_USAGE_PAGE_GENERIC
     devs[0].usUsage = 0x02;   // HID_USAGE_GENERIC_MOUSE
     devs[0].dwFlags = RIDEV_INPUTSINK;
-    devs[0].hwndTarget = hwnd;
+    devs[0].hwndTarget = NULL;
 
     // Keyboard
     devs[1].usUsagePage = 0x01;   // HID_USAGE_PAGE_GENERIC
     devs[1].usUsage = 0x06;   // HID_USAGE_GENERIC_KEYBOARD
     devs[1].dwFlags = RIDEV_INPUTSINK;
-    devs[1].hwndTarget = hwnd;
+    devs[1].hwndTarget = NULL;
 
     if (!RegisterRawInputDevices(devs, 2, sizeof(RAWINPUTDEVICE)))
     {
@@ -150,7 +80,7 @@ void ThreadFunction(HMODULE hModule)
 
     Sleep(1000);
     UnregisterMouseAndKeyboard();
-    Registergameinput(NULL);
+    Registergameinput();
     return;
 }
 
