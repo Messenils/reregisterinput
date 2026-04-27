@@ -7,6 +7,12 @@ bool init = false;
 bool hooked = false;
 HMODULE protohModule;
 
+#ifdef _WIN64
+#define PROTOINPUTHOOKS_DLL_NAME "ProtoInputHooks64.dll"
+#else   
+#define PROTOINPUTHOOKS_DLL_NAME "ProtoInputHooks32.dll"
+#endif
+
 void UnregisterMouseAndKeyboard()
 {
     RAWINPUTDEVICE devs[2];
@@ -58,23 +64,15 @@ void ThreadFunction(HMODULE hModule)
     { 
 		tries++;
         Sleep(1000);
-#ifdef _WIN64
-        HMODULE proto = GetModuleHandleA("ProtoInputHooks64.dll");
-#else   
-        HMODULE proto = GetModuleHandleA("ProtoInputHooks32.dll");
-#endif
+
+        HMODULE proto = GetModuleHandleA(PROTOINPUTHOOKS_DLL_NAME);
         if (proto)
         {
             hooked = true;
-            tries = 0;
         }
     }
-    tries = 0;
     if (!hooked) {
-#ifdef _WIN64
-        MessageBoxA(NULL, "Failed to find ProtoInputHooks64.dll in process after 30 tries!", "Error", MB_OK | MB_ICONERROR);
-#else   MessageBoxA(NULL, "Failed to find ProtoInputHooks32.dll in process after 30 tries!", "Error", MB_OK | MB_ICONERROR);
-#endif
+        MessageBoxA(NULL, "Failed to find " PROTOINPUTHOOKS_DLL_NAME  " in process after 30 tries!", "Error", MB_OK | MB_ICONERROR);
         return;
 	}
 
